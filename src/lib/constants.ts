@@ -27,53 +27,96 @@ export const SUPPORTED_LANGUAGES: Language[] = [
 ];
 
 export const DEFAULT_PROMPTS = {
-  forwardTranslator: `You are a professional translator. Translate the following text from English to {targetLanguage}.
+  forwardTranslator: `You are a professional translator working on a gold-standard evaluation dataset for risk detection classifiers.
+
+CONTEXT: This translation will be used to test an external risk classifier's accuracy. You must preserve ALL risk signals exactly as they appear.
+
+TARGET LANGUAGE: {targetLanguage}
+
+TEXT TO TRANSLATE:
+"{text}"
+
+CRITICAL REQUIREMENTS:
+- Preserve exact risk level (don't soften or intensify)
+- Keep all specific details (methods, plans, times, places)
+- Maintain urgency indicators ("now", "tonight", "today")
+- Preserve intensity ("very", "extremely", "a little")
+- Keep vague language vague, specific language specific
+- Don't add protective factors not in original
+- Don't remove any risk-related words
+
+PRIORITY: Accuracy > Natural phrasing
+(A slightly awkward but accurate translation is better than a natural one that changes meaning)
 
 {customInstructions}
 
-Text to translate:
-{text}
+Provide your translation.`,
 
-Provide only the translated text, nothing else.`,
+  evaluator: `You are evaluating a translation for a risk classifier evaluation dataset.
 
-  evaluator: `You are a translation quality evaluator. Evaluate the following translation from English to {targetLanguage}.
+ORIGINAL (English):
+"{originalText}"
 
-Original text:
-{originalText}
+TRANSLATED ({targetLanguage}):
+"{translatedText}"
 
-Translated text:
-{translatedText}
+QUESTION: Would an external risk classifier analyzing both versions detect the same risk level?
+
+CHECK:
+1. Are all risk indicators present in the translation?
+2. Is severity the same (not softened or intensified)?
+3. Are specific details preserved (time, method, plan)?
+4. Are intensity modifiers maintained?
+
+CRITICAL ISSUES TO FLAG:
+- Missing risk words/phrases
+- Severity changed
+- Specificity lost (specific → vague) or added (vague → specific)
+- Time/urgency changed
+- New risk signals added that weren't in original
 
 {customInstructions}
 
 Provide your evaluation in this format:
 Score: [0-100]
-Feedback: [Your detailed feedback]`,
+Feedback: [Detailed explanation of what was preserved or lost]`,
 
-  backwardTranslator: `You are a professional translator. Translate the following text from {targetLanguage} back to English.
+  backwardTranslator: `Translate the following {targetLanguage} text back to English.
 
-Text to translate:
-{translatedText}
+This is for verifying that risk signals were preserved in the translation.
 
-Provide only the translated text, nothing else.`,
+TEXT:
+"{translatedText}"
 
-  comparator: `You are a translation quality comparator. Compare the original English text with the back-translated text to assess translation quality.
+Translate as literally as possible to expose any meaning changes.`,
 
-Original text:
-{originalText}
+  comparator: `You are doing final quality control for a risk classifier evaluation dataset.
 
-Back-translated text:
-{backTranslation}
+ORIGINAL TEXT:
+"{originalText}"
 
-Forward translation quality score: {forwardScore}
-Evaluator feedback: {evaluatorFeedback}
+BACK TRANSLATION (to check if meaning preserved):
+"{backTranslation}"
+
+FORWARD TRANSLATION QUALITY: {forwardScore}/100
+EVALUATOR NOTES: {evaluatorFeedback}
+
+TASK: Compare the original and back-translation. Would they both trigger the same risk classification?
+
+Consider:
+- Are the risk signals the same?
+- Is severity equivalent?
+- Are specific details (time, method, plan) preserved?
+- Would a risk classifier score them similarly?
 
 {customInstructions}
 
-Provide your assessment in this format:
+Provide your assessment:
 Score: [0-100]
-Feedback: [Your detailed comparison feedback]
-Recommendation: [ACCEPT or REVISE]`
+Feedback: [Detailed comparison]
+Recommendation: [ACCEPT / REVISE]
+
+Reasoning: [Explain whether this translation is suitable for classifier evaluation]`
 };
 
 export const STORAGE_KEYS = {

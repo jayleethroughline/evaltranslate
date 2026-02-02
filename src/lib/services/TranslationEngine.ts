@@ -1,11 +1,14 @@
-import { TranslationConfig, TranslationResult } from '@/types';
+import { TranslationConfig, TranslationResult, AgentActivity, RiskSignal } from '@/types';
 import { GEMINI_API_URL, API_CONFIG } from '@/lib/constants';
+import { learningDataManager } from '@/lib/services/LearningDataManager';
 
 export class TranslationEngine {
   private apiKey: string;
+  private onAgentUpdate?: (activity: AgentActivity) => void;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, onAgentUpdate?: (activity: AgentActivity) => void) {
     this.apiKey = apiKey;
+    this.onAgentUpdate = onAgentUpdate;
   }
 
   async callGemini(prompt: string, retries = 0): Promise<string> {
