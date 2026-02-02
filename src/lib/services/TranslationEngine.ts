@@ -85,7 +85,9 @@ export class TranslationEngine {
     });
 
     const evaluatorResponse = await this.callGemini(evaluatorPrompt);
+    console.log('[TranslationEngine] Evaluator response:', evaluatorResponse);
     const forwardQualityScore = this.extractScore(evaluatorResponse);
+    console.log('[TranslationEngine] Extracted forward quality score:', forwardQualityScore);
     const evaluatorFeedback = evaluatorResponse;
 
     // Step 3: Back translation
@@ -107,8 +109,11 @@ export class TranslationEngine {
     });
 
     const comparatorResponse = await this.callGemini(comparatorPrompt);
+    console.log('[TranslationEngine] Comparator response:', comparatorResponse);
     const finalQualityScore = this.extractScore(comparatorResponse);
+    console.log('[TranslationEngine] Extracted final quality score:', finalQualityScore);
     const recommendation = this.extractRecommendation(comparatorResponse);
+    console.log('[TranslationEngine] Extracted recommendation:', recommendation);
 
     return {
       rowIndex: 0, // Will be set by the service
@@ -132,11 +137,14 @@ export class TranslationEngine {
   }
 
   private extractScore(text: string): number {
+    console.log('[TranslationEngine] Extracting score from text (first 500 chars):', text.substring(0, 500));
     const scoreMatch = text.match(/Score:\s*(\d+)/i);
     if (scoreMatch) {
       const score = parseInt(scoreMatch[1], 10);
+      console.log('[TranslationEngine] Found score:', score);
       return Math.min(100, Math.max(0, score));
     }
+    console.warn('[TranslationEngine] No score found in output, using default 50');
     return 50; // Default score if not found
   }
 
