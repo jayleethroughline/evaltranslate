@@ -159,6 +159,7 @@ export class TranslationEngine {
     }
 
     console.warn('[TranslationEngine] No score found in output, using default 50');
+    console.warn('[TranslationEngine] Full text that failed to match:', text);
     return 50; // Default score if not found
   }
 
