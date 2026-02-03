@@ -10,6 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { datasetService } from '@/lib/services/DatasetService';
 
 interface TranslationResultsViewerProps {
@@ -23,15 +33,45 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
   const [currentPage, setCurrentPage] = useState(0);
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [editedTranslations, setEditedTranslations] = useState<Record<number, string>>({});
+  const [showRevisionDialog, setShowRevisionDialog] = useState(false);
+  const [revisionData, setRevisionData] = useState<{
+    rowIndex: number;
+    original: string;
+    revised: string;
+    recommendation: string;
+  } | null>(null);
 
   const itemsPerPage = 50;
 
   // Load source dataset to get category and risk_level
   const sourceDataset = datasetService.getDataset(job.sourceDatasetId);
 
-  const handleApplyRevision = (rowIndex: number, currentTranslation: string) => {
-    setEditingRow(rowIndex);
-    setEditedTranslations(prev => ({ ...prev, [rowIndex]: currentTranslation }));
+  const handleApplyRevision = (rowIndex: number, currentTranslation: string, recommendation: string) => {
+    const revisedTranslation = extractRevisedTranslation(recommendation);
+    if (revisedTranslation) {
+      setRevisionData({
+        rowIndex,
+        original: currentTranslation,
+        revised: revisedTranslation,
+        recommendation
+      });
+      setShowRevisionDialog(true);
+    } else {
+      // If can't extract, allow manual editing
+      setEditingRow(rowIndex);
+      setEditedTranslations(prev => ({ ...prev, [rowIndex]: currentTranslation }));
+    }
+  };
+
+  const confirmRevision = () => {
+    if (revisionData) {
+      setEditedTranslations(prev => ({
+        ...prev,
+        [revisionData.rowIndex]: revisionData.revised
+      }));
+    }
+    setShowRevisionDialog(false);
+    setRevisionData(null);
   };
 
   const handleSaveEdit = () => {
@@ -59,13 +99,16 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
     let cleaned = translatedText
       .replace(/^\*+\s*TRANSLATION(\s*\([^)]+\))?\s*\*+:?\s*/gi, '')
       .replace(/^\*+Translation(\s*\([^)]+\))?\*+:?\s*/gi, '')
+      .replace(/^\*+\s*/g, '')  // Remove leading asterisks
+      .replace(/\s*\*+\s*---\s*\*?.*/g, '')  // Remove trailing *** --- *...
+      .replace(/\s*---\s*.*/g, '')  // Remove trailing --- ...
       .replace(/^["']|["']$/g, '')
       .trim();
 
     // Get text before analysis sections
     const beforeAnalysis = cleaned.split(/\*\*(?:RISK ANALYSIS|TRANSLATION DECISIONS|CULTURAL ADAPTATION|CONFIDENCE):\*\*/i)[0];
 
-    return beforeAnalysis.trim();
+    return beforeAnalysis.replace(/\s*\*+\s*$/g, '').trim();  // Remove trailing asterisks
   };
 
   const extractTranslationRationale = (translatedText: string): string => {
@@ -85,11 +128,15 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
       // Remove "To verify the preservation..." or "To expose any shifts..."
       .replace(/^To (?:verify|expose|facilitate)[^.]*\.\s*/i, '')
       // Remove "provided, translated as literally as possible..."
-      .replace(/^provided,?\s+translated as literally as possible[^.]*\.\s*/i, '')
+      .replace(/^provided,?\s+(?:translated as literally as possible|intended to expose|aimed at exposing)[^.]*\.\s*/i, '')
+      // Remove "rendered as literally as possible..."
+      .replace(/^rendered as literally as possible[^.]*\.\s*/i, '')
       // Remove "and the accompanying reasoning..."
       .replace(/^and the accompanying reasoning[^.]*\.\s*/i, '')
       // Remove **Literal Translation:** or similar
-      .replace(/^\*+\s*Literal Translation\s*\*+:?\s*/i, '')
+      .replace(/^\*+\s*(?:Literal Translation|Literal Breakdown|###)\s*\*+:?\s*/gi, '')
+      // Remove leading asterisks and ###
+      .replace(/^\*+\s*###\s*/g, '')
       // Remove ***TRANSLATION** prefix
       .replace(/^\*+\s*TRANSLATION\s*\*+:?\s*/gi, '')
       // Remove "The text says" or "It says"
@@ -105,6 +152,16 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
     const reviseMatch = feedback.match(/(?:IF REVISE|Required Changes):\s*\n?(.*?)(?:\n\n|$)/s);
     if (reviseMatch) {
       return reviseMatch[1].trim();
+    }
+    return '';
+  };
+
+  const extractRevisedTranslation = (recommendation: string): string => {
+    // Try to extract quoted Korean text from the recommendation
+    // Patterns: "Change 'X' to 'Y'" or "Use 'Y' instead"
+    const changeMatch = recommendation.match(/(?:to|Use)\s+['"']([^'"']+)['"']/);
+    if (changeMatch) {
+      return extractCleanTranslation(changeMatch[1]);
     }
     return '';
   };
@@ -354,7 +411,7 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
                         size="sm"
                         title={revisionRec}
                         className="text-xs"
-                        onClick={() => handleApplyRevision(result.rowIndex, cleanTranslation)}
+                        onClick={() => handleApplyRevision(result.rowIndex, cleanTranslation, revisionRec)}
                       >
                         <Edit className="w-3 h-3 mr-1" />
                         Apply
@@ -391,6 +448,46 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
           </Button>
         </div>
       )}
+
+      {/* Revision Confirmation Dialog */}
+      <AlertDialog open={showRevisionDialog} onOpenChange={setShowRevisionDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply Revision</AlertDialogTitle>
+            <AlertDialogDescription>
+              Review the suggested changes before applying them to the translation.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {revisionData && (
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium mb-2">Original Translation:</h4>
+                <div className="p-3 bg-red-50 border border-red-200 rounded text-sm">
+                  {revisionData.original}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium mb-2">Revised Translation:</h4>
+                <div className="p-3 bg-green-50 border border-green-200 rounded text-sm">
+                  {revisionData.revised}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium mb-2">Recommendation:</h4>
+                <div className="p-3 bg-muted rounded text-xs text-muted-foreground">
+                  {revisionData.recommendation}
+                </div>
+              </div>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRevision}>
+              Apply Revision
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
