@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Download } from 'lucide-react';
 import { TranslationJob } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,10 +19,12 @@ interface TranslationResultsViewerProps {
 
 export function TranslationResultsViewer({ job, onBack }: TranslationResultsViewerProps) {
   const [filter, setFilter] = useState<'all' | 'ACCEPT' | 'REVISE'>('all');
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [currentPage, setCurrentPage] = useState(0);
 
   const itemsPerPage = 50;
+
+  // Load source dataset to get category and risk_level
+  const sourceDataset = datasetService.getDataset(job.sourceDatasetId);
 
   const filteredResults = filter === 'all'
     ? job.results
@@ -34,14 +36,13 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
     (currentPage + 1) * itemsPerPage
   );
 
-  const toggleRow = (rowIndex: number) => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(rowIndex)) {
-      newExpanded.delete(rowIndex);
-    } else {
-      newExpanded.add(rowIndex);
+  const extractRevisionRecommendation = (feedback: string): string => {
+    // Extract the "IF REVISE" or "Required Changes" section
+    const reviseMatch = feedback.match(/(?:IF REVISE|Required Changes):\s*\n?(.*?)(?:\n\n|$)/s);
+    if (reviseMatch) {
+      return reviseMatch[1].trim().substring(0, 200); // Limit length
     }
-    setExpandedRows(newExpanded);
+    return '-';
   };
 
   const handleExport = () => {
@@ -183,93 +184,72 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
         )}
       </div>
 
-      <div className="space-y-2">
-        {paginatedResults.map(result => {
-          const isExpanded = expandedRows.has(result.rowIndex);
+      <div className="border rounded-lg overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium">Category</th>
+              <th className="px-3 py-2 text-left font-medium">Risk Level</th>
+              <th className="px-3 py-2 text-left font-medium">Original</th>
+              <th className="px-3 py-2 text-left font-medium">Translated</th>
+              <th className="px-3 py-2 text-left font-medium">Back Translated</th>
+              <th className="px-3 py-2 text-center font-medium">Fwd Score</th>
+              <th className="px-3 py-2 text-center font-medium">Final Score</th>
+              <th className="px-3 py-2 text-center font-medium">Decision</th>
+              <th className="px-3 py-2 text-left font-medium">Revision Needed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedResults.map(result => {
+              const sourceRow = sourceDataset?.data[result.rowIndex];
+              const category = sourceRow?.category || sourceRow?.risk_category || '-';
+              const riskLevel = sourceRow?.risk_level || sourceRow?.severity_level || sourceRow?.severity || '-';
+              const revisionRec = extractRevisionRecommendation(result.comparatorFeedback);
 
-          return (
-            <Card key={result.rowIndex}>
-              <CardContent className="pt-4">
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Row #{result.rowIndex}
-                      </span>
-                      <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
-                        result.recommendation === 'ACCEPT'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {result.recommendation}
-                      </span>
+              return (
+                <tr key={result.rowIndex} className="border-t hover:bg-muted/50">
+                  <td className="px-3 py-2">{category}</td>
+                  <td className="px-3 py-2">{riskLevel}</td>
+                  <td className="px-3 py-2 max-w-xs">
+                    <div className="truncate" title={result.originalText}>
+                      {truncateText(result.originalText, 80)}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleRow(result.rowIndex)}
-                    >
-                      {isExpanded ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-1">Original</div>
-                      <div className="text-sm">
-                        {isExpanded ? result.originalText : truncateText(result.originalText)}
-                      </div>
+                  </td>
+                  <td className="px-3 py-2 max-w-xs">
+                    <div className="truncate" title={result.translatedText}>
+                      {truncateText(result.translatedText, 80)}
                     </div>
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-1">Translated</div>
-                      <div className="text-sm">
-                        {isExpanded ? result.translatedText : truncateText(result.translatedText)}
-                      </div>
+                  </td>
+                  <td className="px-3 py-2 max-w-xs">
+                    <div className="truncate" title={result.backTranslation}>
+                      {truncateText(result.backTranslation, 80)}
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Forward Score:</span>{' '}
-                      <span className="font-medium">{result.forwardQualityScore}</span>
+                  </td>
+                  <td className="px-3 py-2 text-center font-medium">
+                    {result.forwardQualityScore}
+                  </td>
+                  <td className="px-3 py-2 text-center font-medium">
+                    {result.finalQualityScore}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                      result.recommendation === 'ACCEPT'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {result.recommendation}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 max-w-xs">
+                    <div className="truncate text-xs" title={revisionRec}>
+                      {truncateText(revisionRec, 60)}
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Final Score:</span>{' '}
-                      <span className="font-medium">{result.finalQualityScore}</span>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="space-y-3 pt-3 border-t">
-                      <div>
-                        <div className="text-xs font-medium text-muted-foreground mb-1">
-                          Back Translation
-                        </div>
-                        <div className="text-sm">{result.backTranslation}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs font-medium text-muted-foreground mb-1">
-                          Evaluator Feedback
-                        </div>
-                        <div className="text-sm whitespace-pre-wrap">{result.evaluatorFeedback}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs font-medium text-muted-foreground mb-1">
-                          Comparator Feedback
-                        </div>
-                        <div className="text-sm whitespace-pre-wrap">{result.comparatorFeedback}</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {totalPages > 1 && (
