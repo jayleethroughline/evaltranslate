@@ -20,11 +20,28 @@ interface TranslationResultsViewerProps {
 export function TranslationResultsViewer({ job, onBack }: TranslationResultsViewerProps) {
   const [filter, setFilter] = useState<'all' | 'ACCEPT' | 'REVISE'>('all');
   const [currentPage, setCurrentPage] = useState(0);
+  const [editingRow, setEditingRow] = useState<number | null>(null);
+  const [editedTranslations, setEditedTranslations] = useState<Record<number, string>>({});
 
   const itemsPerPage = 50;
 
   // Load source dataset to get category and risk_level
   const sourceDataset = datasetService.getDataset(job.sourceDatasetId);
+
+  const handleApplyRevision = (rowIndex: number, currentTranslation: string) => {
+    setEditingRow(rowIndex);
+    setEditedTranslations(prev => ({ ...prev, [rowIndex]: currentTranslation }));
+  };
+
+  const handleSaveEdit = (rowIndex: number) => {
+    // Save the edited translation (in a real app, you'd update the job in storage)
+    setEditingRow(null);
+    // You could also call a service method here to persist the change
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRow(null);
+  };
 
   const filteredResults = filter === 'all'
     ? job.results
@@ -116,9 +133,11 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
     const data = job.results.map(result => {
       const { category, riskLevel } = getCategoryAndRiskLevel(result.rowIndex);
       const cleanTranslation = extractCleanTranslation(result.translatedText);
+      // Use edited translation if available
+      const finalTranslation = editedTranslations[result.rowIndex] || cleanTranslation;
 
       return {
-        prompt: cleanTranslation,
+        prompt: finalTranslation,
         category: category,
         risk_level: riskLevel
       };
@@ -276,9 +295,24 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
                     </div>
                   </td>
                   <td className="px-3 py-2 max-w-xs">
-                    <div className="truncate cursor-help" title={translationRationale || cleanTranslation}>
-                      {truncateText(cleanTranslation, 80)}
-                    </div>
+                    {editingRow === result.rowIndex ? (
+                      <div className="flex gap-2">
+                        <textarea
+                          className="w-full p-2 border rounded text-sm"
+                          rows={3}
+                          value={editedTranslations[result.rowIndex] || cleanTranslation}
+                          onChange={(e) => setEditedTranslations(prev => ({ ...prev, [result.rowIndex]: e.target.value }))}
+                        />
+                        <div className="flex flex-col gap-1">
+                          <Button size="sm" onClick={() => handleSaveEdit(result.rowIndex)}>Save</Button>
+                          <Button size="sm" variant="outline" onClick={handleCancelEdit}>Cancel</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="truncate cursor-help" title={translationRationale || cleanTranslation}>
+                        {truncateText(editedTranslations[result.rowIndex] || cleanTranslation, 80)}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2 max-w-xs">
                     <div className="truncate" title={cleanBackTranslation}>
@@ -307,6 +341,7 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
                         size="sm"
                         title={revisionRec}
                         className="text-xs"
+                        onClick={() => handleApplyRevision(result.rowIndex, cleanTranslation)}
                       >
                         <Edit className="w-3 h-3 mr-1" />
                         Apply
