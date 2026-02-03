@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, Edit } from 'lucide-react';
 import { TranslationJob } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,13 +36,71 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
     (currentPage + 1) * itemsPerPage
   );
 
+  const extractCleanTranslation = (translatedText: string): string => {
+    // Remove **TRANSLATION** or **TRANSLATION (KO)** prefixes and quotes
+    let cleaned = translatedText
+      .replace(/\*\*TRANSLATION(\s*\([^)]+\))?\*\*\s*/gi, '')
+      .replace(/^["']|["']$/g, '')
+      .trim();
+
+    // Get text before analysis sections
+    const beforeAnalysis = cleaned.split(/\*\*(?:RISK ANALYSIS|TRANSLATION DECISIONS|CULTURAL ADAPTATION|CONFIDENCE):\*\*/i)[0];
+
+    return beforeAnalysis.trim();
+  };
+
+  const extractTranslationRationale = (translatedText: string): string => {
+    // Extract everything after the translation for hover tooltip
+    const parts = translatedText.split(/\*\*(?:RISK ANALYSIS|TRANSLATION DECISIONS|CULTURAL ADAPTATION):\*\*/i);
+    if (parts.length > 1) {
+      return translatedText.substring(parts[0].length).trim();
+    }
+    return '';
+  };
+
+  const extractCleanBackTranslation = (backTranslation: string): string => {
+    // Remove common preambles like "the translation of the Korean text back into..."
+    let cleaned = backTranslation
+      .replace(/^(?:Here is |Here's |This is )?(?:the |a )?(?:literal |direct )?(?:translation|back-?translation|English translation) of (?:the )?(?:Korean|translated) (?:text|sentence|version)(?:\s+back)?\s+(?:into English|to English)?[,:.\s]*/i, '')
+      .trim();
+
+    // If still starts with generic phrases, remove them
+    cleaned = cleaned.replace(/^(?:The text says|It says|Translation):\s*/i, '').trim();
+
+    return cleaned || backTranslation.trim();
+  };
+
   const extractRevisionRecommendation = (feedback: string): string => {
     // Extract the "IF REVISE" or "Required Changes" section
     const reviseMatch = feedback.match(/(?:IF REVISE|Required Changes):\s*\n?(.*?)(?:\n\n|$)/s);
     if (reviseMatch) {
-      return reviseMatch[1].trim().substring(0, 200); // Limit length
+      return reviseMatch[1].trim();
     }
-    return '-';
+    return '';
+  };
+
+  const getCategoryAndRiskLevel = (rowIndex: number) => {
+    if (!sourceDataset) return { category: '-', riskLevel: '-' };
+
+    const sourceRow = sourceDataset.data[rowIndex];
+    if (!sourceRow) return { category: '-', riskLevel: '-' };
+
+    // Try different possible column names (case-insensitive)
+    const getCaseInsensitiveValue = (row: any, possibleNames: string[]) => {
+      for (const name of possibleNames) {
+        // Try exact match first
+        if (row[name]) return row[name];
+        // Try case-insensitive match
+        const foundKey = Object.keys(row).find(k => k.toLowerCase() === name.toLowerCase());
+        if (foundKey && row[foundKey]) return row[foundKey];
+      }
+      return '-';
+    };
+
+    const category = getCaseInsensitiveValue(sourceRow, ['Category', 'category', 'risk_category']);
+    const riskLevel = getCaseInsensitiveValue(sourceRow, ['Risk Level', 'risk_level', 'severity_level', 'severity']);
+
+    return { category, riskLevel };
   };
 
   const handleExport = () => {
@@ -54,14 +112,15 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
       return;
     }
 
-    // Create 3-column export: translated_prompt, category, risk_level
+    // Create 3-column export: translated_prompt (clean), category, risk_level
     const data = job.results.map(result => {
-      const sourceRow = sourceDataset.data[result.rowIndex];
+      const { category, riskLevel } = getCategoryAndRiskLevel(result.rowIndex);
+      const cleanTranslation = extractCleanTranslation(result.translatedText);
 
       return {
-        prompt: result.translatedText,
-        category: sourceRow?.category || sourceRow?.risk_category || '',
-        risk_level: sourceRow?.risk_level || sourceRow?.severity_level || sourceRow?.severity || ''
+        prompt: cleanTranslation,
+        category: category,
+        risk_level: riskLevel
       };
     });
 
@@ -201,9 +260,10 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
           </thead>
           <tbody>
             {paginatedResults.map(result => {
-              const sourceRow = sourceDataset?.data[result.rowIndex];
-              const category = sourceRow?.category || sourceRow?.risk_category || '-';
-              const riskLevel = sourceRow?.risk_level || sourceRow?.severity_level || sourceRow?.severity || '-';
+              const { category, riskLevel } = getCategoryAndRiskLevel(result.rowIndex);
+              const cleanTranslation = extractCleanTranslation(result.translatedText);
+              const translationRationale = extractTranslationRationale(result.translatedText);
+              const cleanBackTranslation = extractCleanBackTranslation(result.backTranslation);
               const revisionRec = extractRevisionRecommendation(result.comparatorFeedback);
 
               return (
@@ -216,13 +276,13 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
                     </div>
                   </td>
                   <td className="px-3 py-2 max-w-xs">
-                    <div className="truncate" title={result.translatedText}>
-                      {truncateText(result.translatedText, 80)}
+                    <div className="truncate cursor-help" title={translationRationale || cleanTranslation}>
+                      {truncateText(cleanTranslation, 80)}
                     </div>
                   </td>
                   <td className="px-3 py-2 max-w-xs">
-                    <div className="truncate" title={result.backTranslation}>
-                      {truncateText(result.backTranslation, 80)}
+                    <div className="truncate" title={cleanBackTranslation}>
+                      {truncateText(cleanBackTranslation, 80)}
                     </div>
                   </td>
                   <td className="px-3 py-2 text-center font-medium">
@@ -240,10 +300,20 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
                       {result.recommendation}
                     </span>
                   </td>
-                  <td className="px-3 py-2 max-w-xs">
-                    <div className="truncate text-xs" title={revisionRec}>
-                      {truncateText(revisionRec, 60)}
-                    </div>
+                  <td className="px-3 py-2">
+                    {revisionRec ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        title={revisionRec}
+                        className="text-xs"
+                      >
+                        <Edit className="w-3 h-3 mr-1" />
+                        Apply
+                      </Button>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">-</span>
+                    )}
                   </td>
                 </tr>
               );
