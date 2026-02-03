@@ -1,5 +1,4 @@
-import { LearningData, UserFeedback, RiskTermEntry, RiskSignal } from '@/types';
-import { storageManager } from '@/lib/storage/LocalStorageManager';
+import { LearningData, UserFeedback, RiskSignal } from '@/types';
 
 const LEARNING_DATA_KEY = 'translation_app_learning_data';
 

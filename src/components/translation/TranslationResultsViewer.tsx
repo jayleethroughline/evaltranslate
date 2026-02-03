@@ -34,7 +34,7 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
     setEditedTranslations(prev => ({ ...prev, [rowIndex]: currentTranslation }));
   };
 
-  const handleSaveEdit = (rowIndex: number) => {
+  const handleSaveEdit = () => {
     // Save the edited translation (in a real app, you'd update the job in storage)
     setEditingRow(null);
     // You could also call a service method here to persist the change
@@ -305,7 +305,7 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
                           onChange={(e) => setEditedTranslations(prev => ({ ...prev, [result.rowIndex]: e.target.value }))}
                         />
                         <div className="flex flex-col gap-1">
-                          <Button size="sm" onClick={() => handleSaveEdit(result.rowIndex)}>Save</Button>
+                          <Button size="sm" onClick={handleSaveEdit}>Save</Button>
                           <Button size="sm" variant="outline" onClick={handleCancelEdit}>Cancel</Button>
                         </div>
                       </div>
