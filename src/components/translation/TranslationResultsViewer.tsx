@@ -45,32 +45,32 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
   };
 
   const handleExport = () => {
-    // Create a dataset from results
-    const data = job.results.map(result => ({
-      row_index: result.rowIndex,
-      original_text: result.originalText,
-      translated_text: result.translatedText,
-      forward_quality_score: result.forwardQualityScore,
-      evaluator_feedback: result.evaluatorFeedback,
-      back_translation: result.backTranslation,
-      final_quality_score: result.finalQualityScore,
-      comparator_feedback: result.comparatorFeedback,
-      recommendation: result.recommendation
-    }));
+    // Load source dataset to get category and risk_level
+    const sourceDataset = datasetService.getDataset(job.sourceDatasetId);
+
+    if (!sourceDataset) {
+      console.error('Source dataset not found');
+      return;
+    }
+
+    // Create 3-column export: translated_prompt, category, risk_level
+    const data = job.results.map(result => {
+      const sourceRow = sourceDataset.data[result.rowIndex];
+
+      return {
+        prompt: result.translatedText,
+        category: sourceRow?.category || sourceRow?.risk_category || '',
+        risk_level: sourceRow?.risk_level || sourceRow?.severity_level || sourceRow?.severity || ''
+      };
+    });
 
     const dataset = {
       id: 'temp',
-      name: `${job.sourceDatasetName} - ${job.targetLanguage} - Results`,
+      name: `${job.sourceDatasetName} - ${job.targetLanguage}`,
       columns: [
-        { name: 'row_index', type: 'text' as const },
-        { name: 'original_text', type: 'text' as const },
-        { name: 'translated_text', type: 'text' as const },
-        { name: 'forward_quality_score', type: 'text' as const },
-        { name: 'evaluator_feedback', type: 'text' as const },
-        { name: 'back_translation', type: 'text' as const },
-        { name: 'final_quality_score', type: 'text' as const },
-        { name: 'comparator_feedback', type: 'text' as const },
-        { name: 'recommendation', type: 'text' as const }
+        { name: 'prompt', type: 'prompt' as const },
+        { name: 'category', type: 'text' as const },
+        { name: 'risk_level', type: 'text' as const }
       ],
       data,
       metadata: {
@@ -84,7 +84,7 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${job.sourceDatasetName}-${job.targetLanguage}-results.csv`;
+    link.download = `${job.sourceDatasetName}-${job.targetLanguage}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
