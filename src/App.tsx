@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, Info } from 'lucide-react';
 import { DatasetTranslation } from '@/components/translation/DatasetTranslation';
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ function App() {
   const [apiKey, setApiKey] = useState('');
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showInfoDialog, setShowInfoDialog] = useState(false);
   const [tempApiKey, setTempApiKey] = useState('');
 
   useEffect(() => {
@@ -56,9 +57,14 @@ function App() {
                 AI-powered multi-agent translation with quality assurance
               </p>
             </div>
-            <Button variant="ghost" size="icon" onClick={openSettings}>
-              <Settings className="w-5 h-5" />
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="icon" onClick={() => setShowInfoDialog(true)}>
+                <Info className="w-5 h-5" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={openSettings}>
+                <Settings className="w-5 h-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -152,6 +158,141 @@ function App() {
             </Button>
             <Button onClick={handleSaveApiKey} disabled={!tempApiKey}>
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Info Dialog */}
+      <Dialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>How It Works</DialogTitle>
+            <DialogDescription>
+              Understanding the 4-agent translation workflow and application architecture
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Workflow Explanation */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Multi-Agent Translation Workflow</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Each translation goes through 4 specialized AI agents to ensure quality and accuracy:
+              </p>
+
+              <div className="space-y-4">
+                <div className="border-l-4 border-blue-500 pl-4">
+                  <h4 className="font-medium">1. Forward Translator</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Translates the original text into the target language while preserving risk signals.
+                    Adapts culturally inappropriate items (e.g., "gun" in Korea → "pills" or "knife")
+                    while maintaining the same risk level.
+                  </p>
+                </div>
+
+                <div className="border-l-4 border-green-500 pl-4">
+                  <h4 className="font-medium">2. Evaluator</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Checks if the translation preserved all risk factors with the same strength.
+                    Scores the translation (0-100) based on signal preservation, cultural appropriateness,
+                    and naturalness. Uses strict criteria to ensure gold-standard quality.
+                  </p>
+                </div>
+
+                <div className="border-l-4 border-purple-500 pl-4">
+                  <h4 className="font-medium">3. Back Translator</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Translates the target language back to English literally to expose any meaning changes.
+                    This helps verify that risk signals were actually preserved in the translation.
+                  </p>
+                </div>
+
+                <div className="border-l-4 border-orange-500 pl-4">
+                  <h4 className="font-medium">4. Comparator</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Compares the original with the back-translation and simulates what an ML classifier
+                    would detect in each. Gives final score and recommendation (ACCEPT/REVISE).
+                    Ensures the translation is suitable for gold-standard evaluation datasets.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Mermaid Chart */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Workflow Diagram</h3>
+              <div className="bg-muted p-4 rounded-lg">
+                <pre className="text-xs overflow-x-auto">
+{`graph TB
+    A[Original Text<br/>English] -->|1. Forward Translation| B[Forward Translator]
+    B -->|Translated Text<br/>+ Rationale| C[Evaluator]
+    C -->|Forward Score<br/>+ Feedback| D{Score >= 70?}
+    D -->|Yes| E[Back Translator]
+    D -->|No| X[Stop - Failed]
+    E -->|Back Translation| F[Comparator]
+    C -->|Forward Feedback| F
+    F -->|Final Score<br/>+ Recommendation| G{ACCEPT or<br/>REVISE?}
+    G -->|ACCEPT| H[Ready for Export]
+    G -->|REVISE| I[Manual Review<br/>+ Editing]
+    I --> H
+
+    style B fill:#3b82f6
+    style C fill:#22c55e
+    style E fill:#a855f7
+    style F fill:#f97316
+    style H fill:#10b981
+    style X fill:#ef4444`}
+                </pre>
+              </div>
+            </div>
+
+            {/* Architecture */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Application Architecture</h3>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <strong className="text-foreground">Frontend:</strong>
+                  <span className="text-muted-foreground"> React 18 + TypeScript + Vite, with Tailwind CSS and shadcn/ui components</span>
+                </div>
+                <div>
+                  <strong className="text-foreground">Storage:</strong>
+                  <span className="text-muted-foreground"> Browser localStorage - all datasets and jobs stored client-side (no backend)</span>
+                </div>
+                <div>
+                  <strong className="text-foreground">AI Model:</strong>
+                  <span className="text-muted-foreground"> Google Gemini 3 Flash Preview via direct API calls</span>
+                </div>
+                <div>
+                  <strong className="text-foreground">Processing:</strong>
+                  <span className="text-muted-foreground"> Sequential row-by-row translation with 4 API calls per row (takes ~10-15 seconds per row)</span>
+                </div>
+                <div>
+                  <strong className="text-foreground">Data Flow:</strong>
+                  <span className="text-muted-foreground"> CSV Upload → Dataset Storage → Translation Job → 4-Agent Processing → Results Table → CSV Export</span>
+                </div>
+                <div>
+                  <strong className="text-foreground">Deployment:</strong>
+                  <span className="text-muted-foreground"> Static site on Vercel with auto-deploy from GitHub on every push</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Purpose */}
+            <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+              <h3 className="text-lg font-semibold mb-2">Purpose</h3>
+              <p className="text-sm text-muted-foreground">
+                This tool creates gold-standard translated datasets for evaluating ML risk classifiers.
+                The 4-agent workflow ensures translations preserve exact risk signals (factors, strength,
+                temporal markers, intensity) so that classifiers can be fairly tested for F1 score,
+                precision, and recall across languages.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setShowInfoDialog(false)}>
+              Got it
             </Button>
           </DialogFooter>
         </DialogContent>
