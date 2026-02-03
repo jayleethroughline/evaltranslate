@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Mermaid } from '@/components/ui/mermaid';
 import { storageManager } from '@/lib/storage/LocalStorageManager';
 
 function App() {
@@ -222,9 +223,8 @@ function App() {
             {/* Mermaid Chart */}
             <div>
               <h3 className="text-lg font-semibold mb-3">Workflow Diagram</h3>
-              <div className="bg-muted p-4 rounded-lg">
-                <pre className="text-xs overflow-x-auto">
-{`graph TB
+              <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+                <Mermaid chart={`graph TB
     A[Original Text<br/>English] -->|1. Forward Translation| B[Forward Translator]
     B -->|Translated Text<br/>+ Rationale| C[Evaluator]
     C -->|Forward Score<br/>+ Feedback| D{Score >= 70?}
@@ -242,8 +242,7 @@ function App() {
     style E fill:#a855f7
     style F fill:#f97316
     style H fill:#10b981
-    style X fill:#ef4444`}
-                </pre>
+    style X fill:#ef4444`} />
               </div>
             </div>
 
