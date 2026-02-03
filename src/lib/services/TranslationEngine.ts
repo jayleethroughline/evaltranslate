@@ -138,12 +138,26 @@ export class TranslationEngine {
 
   private extractScore(text: string): number {
     console.log('[TranslationEngine] Extracting score from text (first 500 chars):', text.substring(0, 500));
-    const scoreMatch = text.match(/Score:\s*(\d+)/i);
-    if (scoreMatch) {
-      const score = parseInt(scoreMatch[1], 10);
-      console.log('[TranslationEngine] Found score:', score);
-      return Math.min(100, Math.max(0, score));
+
+    // Try multiple patterns to be more robust
+    const patterns = [
+      /Score:\s*(\d+)/i,                           // Score: 85
+      /Overall Score:\s*(\d+)/i,                   // Overall Score: 85
+      /Final Score:\s*(\d+)/i,                     // Final Score: 85
+      /\*\*Score\*\*:\s*(\d+)/i,                   // **Score**: 85
+      /Score\s*=\s*(\d+)/i,                        // Score = 85
+      /score:\s*(\d+)\/100/i,                      // score: 85/100
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const score = parseInt(match[1], 10);
+        console.log('[TranslationEngine] Found score:', score, 'using pattern:', pattern.source);
+        return Math.min(100, Math.max(0, score));
+      }
     }
+
     console.warn('[TranslationEngine] No score found in output, using default 50');
     return 50; // Default score if not found
   }

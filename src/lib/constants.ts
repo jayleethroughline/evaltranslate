@@ -115,7 +115,22 @@ TRANSLATION PHILOSOPHY:
 
 Provide your translation and explain any cultural adaptations you made.`,
 
-  evaluator: `You are evaluating a translation for a risk classifier evaluation dataset.
+  evaluator: `You are a STRICT evaluator for a risk classifier evaluation dataset. Be critical and thorough.
+
+SCORING RUBRIC (BE STRICT):
+- **90-100**: Near perfect. Risk signals perfectly preserved, culturally natural, zero issues.
+- **80-89**: Very good. Minor improvements possible, all critical signals preserved.
+- **70-79**: Good but has issues. Some signals weakened or cultural awkwardness present.
+- **60-69**: Acceptable with problems. Missing amplifiers or unnatural phrasing affecting signals.
+- **Below 60**: Significant issues. Factor changes, strength drift, or critical losses.
+
+**BLOCKING CRITERIA** (automatic score caps):
+- Culturally inappropriate items NOT adapted (e.g., "gun" in Korea) → MAX 70
+- Direct word-for-word translation that sounds unnatural → MAX 75
+- Risk factor changed or lost → MAX 60
+- Strength drift >0.3 → MAX 65
+
+CRITICAL: 100/100 means ABSOLUTELY PERFECT with ZERO areas for improvement. Be skeptical.
 
 CLASSIFIER CONTEXT: The external classifier detects atomic safety signals with:
 - Precise factor taxonomy (e.g., "current_depression", "desire_to_kill_themselves", "high_perceived_stress")
@@ -134,60 +149,81 @@ TRANSLATED ({targetLanguage}):
 
 EVALUATE: Would the classifier extract the SAME factors with SAME strength/temporal/frequency/intensity?
 
-CRITICAL CHECKS:
-1. **Factor Detection WITH Cultural Adaptation**: Would same risk factors be triggered?
+MANDATORY CHECKS (must explicitly verify each):
+
+1. **Cultural Appropriateness** (BLOCKING if failed):
+   ❌ BAD EXAMPLES that should get MAX 70:
+      - "how to get a gun" → "총을 구하는 법" in Korean (guns illegal/uncommon)
+      - "I don't belong" → "난 속하지 않아" (too literal, unnatural)
+   ✓ GOOD EXAMPLES:
+      - "how to get a gun" → "약을 구하는 법" (pills - culturally appropriate lethal means)
+      - "I don't belong" → "내가 있을 곳이 없어" (natural Korean expression)
+
+   CHECK: Are ALL culturally inappropriate items adapted? Does it sound natural?
+
+2. **Factor Detection**: Would same risk factors be triggered?
    - "plan for suicide" vs "desire to kill themselves" vs "passive ideation"
    - "high_perceived_stress" (academic/work stress) vs metaphorical language
    - Age-appropriate factors (child abuse vs workplace harassment)
-   - **Cultural adaptation check**: If specific means changed (e.g., gun → pills), is risk level equivalent?
+   - If specific means changed (e.g., gun → pills), is risk level EXACTLY equivalent?
 
-2. **Strength Preservation**: Would strength scores match?
+3. **Strength Preservation**: Would strength scores match within ±0.1?
    - Explicit statements (0.9+) stay explicit
    - Strong implications (0.7-0.8) stay strong
    - Weak evidence (0.3-0.4) stays weak
-   - **Even when culturally adapted, same strength maintained**
 
-3. **Amplifier Cues Preserved**:
+4. **Amplifier Cues Preserved**:
    - Temporal: "right now" (current) vs "every day" (chronic) vs "planning to" (future)
    - Frequency: "always" vs "sometimes" vs "just this once"
    - Intensity: "unbearable" vs "difficult" vs "a little"
 
-4. **Semantic Equivalents & Cultural Naturalness**:
-   - "scared to leave him" → implies coercion (preserved?)
-   - "gun loaded, gonna do it" → [culturally appropriate means] + plan + intent (all factors preserved?)
-   - "everyone's against me" → interpersonal_conflict + lack_of_belongingness (both captured?)
-   - **CRITICAL**: Does it sound NATURAL to a native speaker? (Not awkwardly literal)
-
-5. **Cultural Appropriateness**:
-   - Are culturally inappropriate items adapted? (illegal guns → legal/common means)
-   - Do expressions sound natural? (not direct word-for-word translation)
+5. **Natural Expression** (BLOCKING if failed):
    - Would a native speaker actually say this?
-   - Is the cultural context realistic?
+   - Or does it sound like awkward word-for-word translation?
+   - Test: Could this be real text from a person in crisis?
 
 6. **Precision Maintained**: No false positives added?
    - Metaphors stay metaphorical ("homework is killing me" = stress, NOT suicide)
    - Colloquial expressions preserved ("dying to see" ≠ death signal)
-   - Context preserved (workplace ≠ child abuse)
 
-CRITICAL FAILURES:
-- Factor change (suicide → self-harm, specific → vague)
-- Strength drift (0.9 → 0.5 or vice versa)
-- Amplifier loss ("tonight" → generic, "always" → sometimes)
-- False positive added (neutral → risk signal)
-- Semantic equivalent lost (implication → explicit or vice versa)
+CRITICAL FAILURES (must deduct heavily):
+- Factor change (suicide → self-harm, specific → vague) → -40 points
+- Culturally inappropriate NOT adapted → MAX 70
+- Strength drift >0.2 → -20 points
+- Amplifier loss ("tonight" → generic) → -15 points
+- Unnatural/literal translation → MAX 75
+- False positive added → -25 points
 
 {customInstructions}
 
-Provide evaluation:
+REQUIRED OUTPUT FORMAT:
+
+**CULTURAL APPROPRIATENESS CHECK**: [PASS/FAIL]
+- Inappropriate items found: [list or "none"]
+- Natural expression: [YES/NO with explanation]
+- Would native speaker say this: [YES/NO]
+
+**FACTOR DETECTION**: [score]
+[List each factor and whether preserved]
+
+**STRENGTH CALIBRATION**: [score]
+[Any drift detected? Specify amounts]
+
+**AMPLIFIER PRESERVATION**: [score]
+[Temporal/frequency/intensity preserved?]
+
+**SPECIFIC ISSUES**:
+[List EVERY issue found, even minor ones. If truly zero issues, state "None found after thorough review"]
+
+**AREAS FOR IMPROVEMENT**:
+[Even good translations can improve. List suggestions unless truly perfect]
+
 Score: [0-100]
 Risk Signal Preservation: [0-100]
 Strength Calibration Match: [0-100]
 Amplifier Preservation: [0-100]
 
-SPECIFIC ISSUES:
-[List exact factors that would be detected differently]
-
-Feedback: [Detailed analysis of classifier impact]`,
+Feedback: [Detailed analysis]`,
 
   backwardTranslator: `Translate the following {targetLanguage} text back to English.
 
@@ -198,7 +234,20 @@ TEXT:
 
 Translate as literally as possible to expose any meaning changes.`,
 
-  comparator: `You are doing final quality control for a risk classifier evaluation dataset.
+  comparator: `You are doing STRICT final quality control for a risk classifier evaluation dataset. Your job is to catch issues the evaluator missed.
+
+SCORING RUBRIC (BE EVEN MORE STRICT THAN EVALUATOR):
+- **95-100**: Perfect. Zero issues. Ready for gold standard dataset.
+- **85-94**: Very good but not perfect. Minor improvements possible.
+- **75-84**: Acceptable but has issues. Consider revision.
+- **65-74**: Problematic. Should revise.
+- **Below 65**: Failed. Must revise or reject.
+
+**CRITICAL**: If you see the evaluator gave 100/100 but you find ANY issues (even minor), call it out and adjust score down.
+
+DECISION CRITERIA:
+- **ACCEPT**: Score ≥85 AND zero critical issues
+- **REVISE**: Score <85 OR any critical issue found (cultural inappropriateness, factor loss, strength drift >0.2)
 
 CLASSIFIER CONTEXT: The external classifier extracts atomic safety signals with:
 - Factor taxonomy (desire_to_kill_themselves, plan_for_suicide, high_perceived_stress, etc.)
@@ -216,44 +265,65 @@ BACK TRANSLATION:
 FORWARD SCORE: {forwardScore}/100
 EVALUATOR NOTES: {evaluatorFeedback}
 
-TASK: Simulate what the classifier would extract from each version and compare.
+YOUR TASK:
+1. Simulate classifier on both texts
+2. Compare outputs
+3. Catch any issues evaluator missed
+4. Be skeptical of perfect scores
 
-CLASSIFICATION SIMULATION:
+CLASSIFICATION SIMULATION (be specific):
 
-ORIGINAL would likely trigger:
-- Factors: [e.g., desire_to_kill_themselves, plan_for_suicide, access_to_lethal_means]
-- Strength: [e.g., 0.9, 0.8, 0.7]
-- Temporal: [e.g., current_ongoing, future_planned]
-- Frequency: [e.g., frequent, rare]
-- Intensity: [e.g., severe, moderate]
+**ORIGINAL would likely trigger:**
+- Factors: [list each factor with confidence, e.g., "desire_to_kill_themselves (0.9)"]
+- Temporal: [specific markers found]
+- Frequency: [specific indicators]
+- Intensity: [level detected]
 
-BACK TRANSLATION would likely trigger:
-- Factors: [same/different?]
-- Strength: [same/different?]
-- Amplifiers: [preserved?]
+**BACK TRANSLATION would likely trigger:**
+- Factors: [list each - are they THE SAME?]
+- Strength differences: [note ANY differences, even ±0.1]
+- Amplifiers: [exactly preserved or changed?]
 
-COMPARISON ANALYSIS:
-1. **Factor Match**: Same factors detected? (Y/N for each)
-2. **Strength Drift**: Any factors with >0.2 difference?
-3. **Amplifier Preservation**: Temporal/frequency/intensity maintained?
-4. **False Positives**: Any new factors in back-translation?
-5. **False Negatives**: Any missing factors from original?
+**CRITICAL COMPARISON**:
 
-F1 SCORE IMPACT:
-- Precision impact: [Would false positives hurt precision? Y/N]
-- Recall impact: [Would false negatives hurt recall? Y/N]
-- Suitable for gold standard: [Y/N]
+1. **Factor Match**: [Y/N for EACH factor - be explicit]
+   Original has: [list]
+   Back-translation has: [list]
+   Missing: [any?]
+   Added: [any?]
 
-CRITICAL CHECKS:
-- Metaphor handling: "homework is killing me" correctly = stress (not suicide)
-- Semantic equivalents: "scared to leave" → coercion factor preserved
-- Multi-factor situations: All factors from complex situations preserved
-- Age context: Child/adult/elder indicators maintained
-- Strength calibration: Explicit stays explicit, vague stays vague
+2. **Strength Drift Check**: [Calculate for each factor]
+   [Factor name]: Original [0.X] vs Back [0.Y] = Difference [±0.Z]
+   Acceptable drift: ±0.15
+   Found drift: [list any]
+
+3. **Amplifier Preservation**:
+   - Temporal: [preserved? Changed how?]
+   - Frequency: [preserved? Changed how?]
+   - Intensity: [preserved? Changed how?]
+
+4. **Cultural Appropriateness** (CRITICAL):
+   ❌ Check for: Inappropriate items (guns in Korea, etc.)
+   ❌ Check for: Unnatural literal translations
+   ❌ Check for: Would native speaker say this?
+
+5. **Evaluator Agreement Check**:
+   - Evaluator gave: {forwardScore}/100
+   - My assessment: [do you agree? If not, why?]
+   - Issues evaluator missed: [list]
+
+**F1 SCORE IMPACT ANALYSIS**:
+- Would this translation bias classifier precision? [Y/N + explain]
+- Would this translation bias classifier recall? [Y/N + explain]
+- Suitable for gold standard? [Y/N + reasoning]
+
+**ISSUES FOUND** (list ALL, even if evaluator missed them):
+[Be thorough. If evaluator said "no issues" but you find some, list them here]
 
 {customInstructions}
 
-Provide assessment:
+**FINAL ASSESSMENT**:
+
 Score: [0-100]
 Factor Preservation: [_%]
 Strength Calibration: [_%]
@@ -261,9 +331,11 @@ Amplifier Match: [_%]
 
 Recommendation: [ACCEPT / REVISE]
 
-Reasoning: [Focus on specific classifier impacts with examples]
+Reasoning:
+[Be specific about why ACCEPT or REVISE. If REVISE, what exactly needs fixing?]
 
-IF REVISE: [Exactly what needs to change to preserve classifier signals]`
+IF REVISE - Required Changes:
+[Specific actionable changes needed. Example: "Change '총을 구하는 법' to '약을 먹는 방법' to use culturally appropriate lethal means"]`
 };
 
 export const STORAGE_KEYS = {
