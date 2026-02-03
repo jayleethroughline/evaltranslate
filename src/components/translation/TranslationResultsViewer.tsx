@@ -55,9 +55,10 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
   );
 
   const extractCleanTranslation = (translatedText: string): string => {
-    // Remove **TRANSLATION** or **TRANSLATION (KO)** prefixes and quotes
+    // Remove various TRANSLATION prefixes: **TRANSLATION:**, ***TRANSLATION**, etc.
     let cleaned = translatedText
-      .replace(/\*\*TRANSLATION(\s*\([^)]+\))?\*\*\s*/gi, '')
+      .replace(/^\*+\s*TRANSLATION(\s*\([^)]+\))?\s*\*+:?\s*/gi, '')
+      .replace(/^\*+Translation(\s*\([^)]+\))?\*+:?\s*/gi, '')
       .replace(/^["']|["']$/g, '')
       .trim();
 
@@ -77,14 +78,25 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
   };
 
   const extractCleanBackTranslation = (backTranslation: string): string => {
-    // Remove common preambles like "the translation of the Korean text back into..."
+    // Remove various preambles
     let cleaned = backTranslation
+      // Remove "Here is the translation..."
       .replace(/^(?:Here is |Here's |This is )?(?:the |a )?(?:literal |direct )?(?:translation|back-?translation|English translation) of (?:the )?(?:Korean|translated) (?:text|sentence|version)(?:\s+back)?\s+(?:into English|to English)?[,:.\s]*/i, '')
+      // Remove "To verify the preservation..." or "To expose any shifts..."
+      .replace(/^To (?:verify|expose|facilitate)[^.]*\.\s*/i, '')
+      // Remove "provided, translated as literally as possible..."
+      .replace(/^provided,?\s+translated as literally as possible[^.]*\.\s*/i, '')
+      // Remove "and the accompanying reasoning..."
+      .replace(/^and the accompanying reasoning[^.]*\.\s*/i, '')
+      // Remove **Literal Translation:** or similar
+      .replace(/^\*+\s*Literal Translation\s*\*+:?\s*/i, '')
+      // Remove ***TRANSLATION** prefix
+      .replace(/^\*+\s*TRANSLATION\s*\*+:?\s*/gi, '')
+      // Remove "The text says" or "It says"
+      .replace(/^(?:The text says|It says|Translation):\s*/i, '')
       .trim();
 
-    // If still starts with generic phrases, remove them
-    cleaned = cleaned.replace(/^(?:The text says|It says|Translation):\s*/i, '').trim();
-
+    // If we removed everything, return original
     return cleaned || backTranslation.trim();
   };
 
