@@ -344,7 +344,7 @@ export const STORAGE_KEYS = {
   API_KEY: 'translation_app_api_key'
 };
 
-export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent';
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent';
 
 export const API_CONFIG = {
   RATE_LIMIT_DELAY: 500, // ms between API calls
