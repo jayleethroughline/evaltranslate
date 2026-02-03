@@ -138,12 +138,17 @@ export class TranslationEngine {
 
     // Try multiple patterns to be more robust
     const patterns = [
+      /Score:\s*\*\*(\d+)\/100\*\*/i,              // Score: **85/100**
+      /Score:\s*\*\*(\d+)\*\*/i,                   // Score: **85**
+      /Score:\s*(\d+)\/100/i,                      // Score: 85/100
       /Score:\s*(\d+)/i,                           // Score: 85
+      /Overall Score:\s*\*\*(\d+)\*\*/i,           // Overall Score: **85**
       /Overall Score:\s*(\d+)/i,                   // Overall Score: 85
+      /Final Score:\s*\*\*(\d+)\*\*/i,             // Final Score: **85**
       /Final Score:\s*(\d+)/i,                     // Final Score: 85
+      /\*\*Score\*\*:\s*\*\*(\d+)\*\*/i,           // **Score**: **85**
       /\*\*Score\*\*:\s*(\d+)/i,                   // **Score**: 85
       /Score\s*=\s*(\d+)/i,                        // Score = 85
-      /score:\s*(\d+)\/100/i,                      // score: 85/100
     ];
 
     for (const pattern of patterns) {
