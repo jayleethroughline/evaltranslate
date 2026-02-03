@@ -46,14 +46,16 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
   // Load source dataset to get category and risk_level
   const sourceDataset = datasetService.getDataset(job.sourceDatasetId);
 
-  const handleApplyRevision = (rowIndex: number, currentTranslation: string, recommendation: string) => {
-    const revisedTranslation = extractRevisedTranslation(recommendation);
+  const handleApplyRevision = (rowIndex: number, currentTranslation: string, comparatorFeedback: string) => {
+    const revisedTranslation = extractRevisedTranslation(comparatorFeedback);
+    const revisionRec = extractRevisionRecommendation(comparatorFeedback);
+
     if (revisedTranslation) {
       setRevisionData({
         rowIndex,
         original: currentTranslation,
         revised: revisedTranslation,
-        recommendation
+        recommendation: revisionRec || comparatorFeedback
       });
       setShowRevisionDialog(true);
     } else {
@@ -95,18 +97,29 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
   );
 
   const extractCleanTranslation = (translatedText: string): string => {
-    // Remove various TRANSLATION prefixes: **TRANSLATION:**, ***TRANSLATION**, etc.
+    // Remove various TRANSLATION prefixes - handle many format variations
     let cleaned = translatedText
-      .replace(/^\*+\s*TRANSLATION(\s*\([^)]+\))?\s*\*+:?\s*/gi, '')
-      .replace(/^\*+Translation(\s*\([^)]+\))?\*+:?\s*/gi, '')
-      .replace(/^\*+\s*/g, '')  // Remove leading asterisks
-      .replace(/\s*\*+\s*---\s*\*?.*/g, '')  // Remove trailing *** --- *...
-      .replace(/\s*---\s*.*/g, '')  // Remove trailing --- ...
+      // Handle "Translation:**" or "TRANSLATION:**" (colon before asterisks)
+      .replace(/^(?:\*+\s*)?TRANSLATION\s*:\s*\*+\s*/gi, '')
+      .replace(/^(?:\*+\s*)?Translation\s*:\s*\*+\s*/gi, '')
+      // Handle "**TRANSLATION:**" or "***TRANSLATION:**" (asterisks both sides)
+      .replace(/^\*+\s*TRANSLATION\s*:\*+\s*/gi, '')
+      // Handle "**TRANSLATION**:" (asterisks before, colon after)
+      .replace(/^\*+\s*TRANSLATION\s*\*+:\s*/gi, '')
+      // Handle just "TRANSLATION:" or "Translation:"
+      .replace(/^TRANSLATION\s*:\s*/gi, '')
+      .replace(/^Translation\s*:\s*/gi, '')
+      // Remove any remaining leading asterisks
+      .replace(/^\*+\s*/g, '')
+      // Remove trailing markers like "*** --- *..." or "--- ..."
+      .replace(/\s*\*+\s*---\s*\*?.*/g, '')
+      .replace(/\s*---\s*.*/g, '')
+      // Remove leading/trailing quotes
       .replace(/^["']|["']$/g, '')
       .trim();
 
     // Get text before analysis sections
-    const beforeAnalysis = cleaned.split(/\*\*(?:RISK ANALYSIS|TRANSLATION DECISIONS|CULTURAL ADAPTATION|CONFIDENCE):\*\*/i)[0];
+    const beforeAnalysis = cleaned.split(/\*\*(?:RISK ANALYSIS|TRANSLATION DECISIONS|CULTURAL ADAPTATION|CONFIDENCE|RATIONALE):\*\*/i)[0];
 
     return beforeAnalysis.replace(/\s*\*+\s*$/g, '').trim();  // Remove trailing asterisks
   };
@@ -121,26 +134,31 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
   };
 
   const extractCleanBackTranslation = (backTranslation: string): string => {
-    // Remove various preambles
+    // Remove various preambles and formatting
     let cleaned = backTranslation
-      // Remove "Here is the translation..."
-      .replace(/^(?:Here is |Here's |This is )?(?:the |a )?(?:literal |direct )?(?:translation|back-?translation|English translation) of (?:the )?(?:Korean|translated) (?:text|sentence|version)(?:\s+back)?\s+(?:into English|to English)?[,:.\s]*/i, '')
-      // Remove "To verify the preservation..." or "To expose any shifts..."
-      .replace(/^To (?:verify|expose|facilitate)[^.]*\.\s*/i, '')
-      // Remove "provided, translated as literally as possible..."
-      .replace(/^provided,?\s+(?:translated as literally as possible|intended to expose|aimed at exposing)[^.]*\.\s*/i, '')
-      // Remove "rendered as literally as possible..."
-      .replace(/^rendered as literally as possible[^.]*\.\s*/i, '')
-      // Remove "and the accompanying reasoning..."
-      .replace(/^and the accompanying reasoning[^.]*\.\s*/i, '')
-      // Remove **Literal Translation:** or similar
-      .replace(/^\*+\s*(?:Literal Translation|Literal Breakdown|###)\s*\*+:?\s*/gi, '')
+      // Remove "Here is the translation..." and variations
+      .replace(/^(?:Here is |Here's |This is )?(?:the |a )?(?:literal |direct )?(?:translation|back-?translation|English translation) of (?:the )?(?:Korean|translated|Chinese|Spanish|Japanese|[a-z]+) (?:text|sentence|version|phrase)(?:\s+back)?\s+(?:into English|to English)?[,:.\s]*/i, '')
+      // Remove "provided, followed by..." preambles
+      .replace(/^provided,?\s+(?:followed by|translated as literally as possible|intended to expose|aimed at (?:being|exposing)|designed to expose)[^.]*\.\s*/i, '')
+      // Remove "To verify..." or "To expose..." preambles
+      .replace(/^To (?:verify|expose|facilitate|capture)[^.]*\.\s*/i, '')
+      // Remove "rendered as..." preambles
+      .replace(/^rendered as (?:literally as possible|a literal)[^.]*\.\s*/i, '')
+      // Remove "and the accompanying..." preambles
+      .replace(/^and the accompanying (?:reasoning|rationale)[^.]*\.\s*/i, '')
+      // Remove **Literal Translation:** markers
+      .replace(/^\*+\s*(?:Literal Translation|Literal Breakdown|Back Translation|###)\s*\*+:?\s*/gi, '')
       // Remove leading asterisks and ###
       .replace(/^\*+\s*###\s*/g, '')
-      // Remove ***TRANSLATION** prefix
+      .replace(/^###\s+/g, '')
+      // Remove ***TRANSLATION*** prefix variations
       .replace(/^\*+\s*TRANSLATION\s*\*+:?\s*/gi, '')
-      // Remove "The text says" or "It says"
+      // Remove "The text says" or "It says" or "Translation:"
       .replace(/^(?:The text says|It says|Translation):\s*/i, '')
+      // Remove leading quotes if present
+      .replace(/^["']/, '')
+      // Remove trailing quotes if present
+      .replace(/["']$/, '')
       .trim();
 
     // If we removed everything, return original
@@ -148,21 +166,33 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
   };
 
   const extractRevisionRecommendation = (feedback: string): string => {
-    // Extract the "IF REVISE" or "Required Changes" section
-    const reviseMatch = feedback.match(/(?:IF REVISE|Required Changes):\s*\n?(.*?)(?:\n\n|$)/s);
+    // Extract the "IF REVISE - Required Changes:" section
+    const reviseMatch = feedback.match(/IF REVISE\s*-?\s*(?:Required Changes)?:\s*\n?(.*?)(?:\n\n(?:[A-Z]|$)|$)/s);
     if (reviseMatch) {
       return reviseMatch[1].trim();
+    }
+    // Fallback: try just "Required Changes:"
+    const fallbackMatch = feedback.match(/Required Changes:\s*\n?(.*?)(?:\n\n(?:[A-Z]|$)|$)/s);
+    if (fallbackMatch) {
+      return fallbackMatch[1].trim();
     }
     return '';
   };
 
-  const extractRevisedTranslation = (recommendation: string): string => {
-    // Try to extract quoted Korean text from the recommendation
-    // Patterns: "Change 'X' to 'Y'" or "Use 'Y' instead"
-    const changeMatch = recommendation.match(/(?:to|Use)\s+['"']([^'"']+)['"']/);
+  const extractRevisedTranslation = (comparatorFeedback: string): string => {
+    // Look for the "REVISED TRANSLATION" marker in the comparator feedback
+    const revisedMatch = comparatorFeedback.match(/\*\*REVISED TRANSLATION\*\*[^:]*:\s*\n?(.+?)(?:\n\n|$)/s);
+    if (revisedMatch) {
+      // Extract and clean the revised translation
+      return extractCleanTranslation(revisedMatch[1].trim());
+    }
+
+    // Fallback: try to extract quoted text from "Change 'X' to 'Y'" patterns
+    const changeMatch = comparatorFeedback.match(/(?:to|Use)\s+['"'"]([^'"'"]+)['"'"]/);
     if (changeMatch) {
       return extractCleanTranslation(changeMatch[1]);
     }
+
     return '';
   };
 
@@ -411,7 +441,7 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
                         size="sm"
                         title={revisionRec}
                         className="text-xs"
-                        onClick={() => handleApplyRevision(result.rowIndex, cleanTranslation, revisionRec)}
+                        onClick={() => handleApplyRevision(result.rowIndex, cleanTranslation, result.comparatorFeedback)}
                       >
                         <Edit className="w-3 h-3 mr-1" />
                         Apply

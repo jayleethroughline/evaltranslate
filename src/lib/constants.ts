@@ -335,7 +335,10 @@ Reasoning:
 [Be specific about why ACCEPT or REVISE. If REVISE, what exactly needs fixing?]
 
 IF REVISE - Required Changes:
-[Specific actionable changes needed. Example: "Change '총을 구하는 법' to '약을 먹는 방법' to use culturally appropriate lethal means"]`
+[List specific issues that need fixing]
+
+**REVISED TRANSLATION** (REQUIRED IF REVISE):
+[Provide the complete corrected {targetLanguage} translation here. This should be the full clean translation that fixes all issues mentioned above. Do NOT include rationale or explanations - ONLY the clean translated text that should replace the original translation. This will be directly used as the replacement.]`
 };
 
 export const STORAGE_KEYS = {
