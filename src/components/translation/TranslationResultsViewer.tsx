@@ -18,6 +18,7 @@ interface TranslationResultsViewerProps {
 }
 
 export function TranslationResultsViewer({ job, onBack }: TranslationResultsViewerProps) {
+  // State management for table view and editing
   const [filter, setFilter] = useState<'all' | 'ACCEPT' | 'REVISE'>('all');
   const [currentPage, setCurrentPage] = useState(0);
   const [editingRow, setEditingRow] = useState<number | null>(null);
