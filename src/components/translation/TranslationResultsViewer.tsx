@@ -134,24 +134,25 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
   };
 
   const extractCleanBackTranslation = (backTranslation: string): string => {
-    // Remove various preambles and formatting
+    // Remove various preambles and formatting - order matters!
     let cleaned = backTranslation
+      // FIRST: Remove all leading asterisks, ###, spaces
+      .replace(/^[\s*#]+/, '')
+      // Remove **Literal Translation:**, **Literal Breakdown...:**, etc.
+      .replace(/^\*+\s*(?:Literal (?:Translation|Breakdown|Back-?translation)[^:]*|Note on [^:]*|###[^:]*)\*+:?\s*/gi, '')
       // Remove all asterisks and TRANSLATION markers at start (any combination)
-      // Handles: *** ***TRANSLATION:**, **TRANSLATION:**, ***TRANSLATION***, etc.
       .replace(/^[\s*]+(?:TRANSLATION|Translation)[\s*:]+/gi, '')
       // Remove "Here is the translation..." and variations
       .replace(/^(?:Here is |Here's |This is )?(?:the |a )?(?:literal |direct )?(?:translation|back-?translation|English translation) of (?:the )?(?:Korean|translated|Chinese|Spanish|Japanese|[a-z]+) (?:text|sentence|version|phrase)(?:\s+back)?\s+(?:into English|to English)?[,:.\s]*/i, '')
-      // Remove "Based on the ... text provided..." (with or without period at end)
+      // Remove "Based on the ... text provided..."
       .replace(/^Based on the (?:Korean|translated|Chinese|Spanish|Japanese|[a-z]+) text provided,?[^:]*:?\s*/i, '')
-      // Remove "provided," at start with various continuations
-      .replace(/^provided[,:]\s+(?:\*+)?/i, '')
-      // Remove "aimed at/intended to/designed to" preambles (stop at colon or quote)
-      .replace(/^(?:aimed at|intended to|designed to)[^:"'"]*[:\s]*/i, '')
+      // Remove "provided." or "provided," or "provided:"
+      .replace(/^provided[\s.,:/]+(?:\*+)?/i, '')
+      // Remove "aimed at/intended to/designed to" preambles
+      .replace(/^(?:aimed at|intended to|designed to|preserving|to help you verify)[^"'""]*/i, '')
       // Remove "To verify..." or "To expose..." preambles
       .replace(/^To (?:verify|expose|facilitate|capture)[^.]*\.?\s*/i, '')
-      // Remove "rendered as..." preambles
-      .replace(/^rendered as (?:literally as possible|a literal)[^.]*\.?\s*/i, '')
-      // Remove any remaining leading asterisks, ###, spaces
+      // Remove any remaining leading asterisks, ###, spaces after all replacements
       .replace(/^[\s*#]+/, '')
       // Remove "The text says" or "It says" or "Translation:"
       .replace(/^(?:The text says|It says|Translation):\s*/i, '')
