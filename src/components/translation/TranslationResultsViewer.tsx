@@ -114,8 +114,8 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
       // Remove trailing markers like "*** --- *..." or "--- ..."
       .replace(/\s*\*+\s*---\s*\*?.*/g, '')
       .replace(/\s*---\s*.*/g, '')
-      // Remove leading/trailing quotes
-      .replace(/^["']|["']$/g, '')
+      // Remove leading/trailing quotes (including curly quotes)
+      .replace(/^["'""'']+|["'""'']+$/g, '')
       .trim();
 
     // Get text before analysis sections
@@ -136,33 +136,33 @@ export function TranslationResultsViewer({ job, onBack }: TranslationResultsView
   const extractCleanBackTranslation = (backTranslation: string): string => {
     // Remove various preambles and formatting
     let cleaned = backTranslation
+      // Remove all asterisks and TRANSLATION markers at start (any combination)
+      // Handles: *** ***TRANSLATION:**, **TRANSLATION:**, ***TRANSLATION***, etc.
+      .replace(/^[\s*]+(?:TRANSLATION|Translation)[\s*:]+/gi, '')
       // Remove "Here is the translation..." and variations
       .replace(/^(?:Here is |Here's |This is )?(?:the |a )?(?:literal |direct )?(?:translation|back-?translation|English translation) of (?:the )?(?:Korean|translated|Chinese|Spanish|Japanese|[a-z]+) (?:text|sentence|version|phrase)(?:\s+back)?\s+(?:into English|to English)?[,:.\s]*/i, '')
-      // Remove "provided, followed by..." preambles
-      .replace(/^provided,?\s+(?:followed by|translated as literally as possible|intended to expose|aimed at (?:being|exposing)|designed to expose)[^.]*\.\s*/i, '')
+      // Remove "Based on the ... text provided..." (with or without period at end)
+      .replace(/^Based on the (?:Korean|translated|Chinese|Spanish|Japanese|[a-z]+) text provided,?[^:]*:?\s*/i, '')
+      // Remove "provided," at start with various continuations
+      .replace(/^provided[,:]\s+(?:\*+)?/i, '')
+      // Remove "aimed at/intended to/designed to" preambles (stop at colon or quote)
+      .replace(/^(?:aimed at|intended to|designed to)[^:"'"]*[:\s]*/i, '')
       // Remove "To verify..." or "To expose..." preambles
-      .replace(/^To (?:verify|expose|facilitate|capture)[^.]*\.\s*/i, '')
+      .replace(/^To (?:verify|expose|facilitate|capture)[^.]*\.?\s*/i, '')
       // Remove "rendered as..." preambles
-      .replace(/^rendered as (?:literally as possible|a literal)[^.]*\.\s*/i, '')
-      // Remove "and the accompanying..." preambles
-      .replace(/^and the accompanying (?:reasoning|rationale)[^.]*\.\s*/i, '')
-      // Remove **Literal Translation:** markers
-      .replace(/^\*+\s*(?:Literal Translation|Literal Breakdown|Back Translation|###)\s*\*+:?\s*/gi, '')
-      // Remove leading asterisks and ###
-      .replace(/^\*+\s*###\s*/g, '')
-      .replace(/^###\s+/g, '')
-      // Remove ***TRANSLATION*** prefix variations
-      .replace(/^\*+\s*TRANSLATION\s*\*+:?\s*/gi, '')
+      .replace(/^rendered as (?:literally as possible|a literal)[^.]*\.?\s*/i, '')
+      // Remove any remaining leading asterisks, ###, spaces
+      .replace(/^[\s*#]+/, '')
       // Remove "The text says" or "It says" or "Translation:"
       .replace(/^(?:The text says|It says|Translation):\s*/i, '')
-      // Remove leading quotes if present
-      .replace(/^["']/, '')
-      // Remove trailing quotes if present
-      .replace(/["']$/, '')
+      // Remove leading quotes (including curly quotes)
+      .replace(/^["'""'']+/, '')
+      // Remove trailing quotes (including curly quotes)
+      .replace(/["'""'']+$/, '')
       .trim();
 
-    // If we removed everything, return original
-    return cleaned || backTranslation.trim();
+    // If we removed everything or it's just punctuation, return original
+    return (cleaned && cleaned.length > 2) ? cleaned : backTranslation.trim();
   };
 
   const extractRevisionRecommendation = (feedback: string): string => {
